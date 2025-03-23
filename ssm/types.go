@@ -25,6 +25,20 @@ type GetParameterRequest struct {
 	WithDecryption bool   `json:"WithDecryption"`
 }
 
+type GetParametersRequest struct {
+	Names          []string `json:"Names"`
+	WithDecryption bool     `json:"WithDecryption"`
+}
+
+type GetParametersByPathRequest struct {
+	MaxResults       int64             `json:"MaxResults"`
+	NextToken        string            `json:"NextToken"`
+	ParameterFilters []ParameterFilter `json:"ParameterFilters"`
+	Path             string            `json:"Path"`
+	Recursive        bool              `json:"Recursive"`
+	WithDecryption   bool              `json:"WithDecryption"`
+}
+
 type ParamDataType string
 
 const (
@@ -67,9 +81,48 @@ type DeleteParameterRequest struct {
 	Name string `json:"Name"`
 }
 
+type DeleteParametersRequest struct {
+	Names []string `json:"Names"`
+}
+
+type KeyFilterType string
+
+const (
+	NameKeyFilter     = "Name"
+	TypeKeyFilter     = "Type"
+	KeyIdFilter       = "KeyId"
+	PathKeyFilter     = "Path"
+	LabelKeyFilter    = "Label"
+	TierKeyFilter     = "Tier"
+	DataTypeKeyFilter = "DataType"
+)
+
+type OptionFilterType string
+
+const (
+	EqualsOptionFilter     = "Equals"
+	BeginsWithOptionFilter = "BeginsWith"
+)
+
+type ParameterFilter struct {
+	Key    KeyFilterType    `json:"Key"`
+	Option OptionFilterType `json:"Option"`
+	Values []string         `json:"Values"`
+}
+
+type DeleteParametesResponse struct {
+}
+
+type DeleteParametersResponse struct {
+	DeleteParameters  []string `json:"DeletedParameters"`
+	InvalidParameters []string `json:"InvalidParameters"`
+}
+
 type DescribeParametersRequest struct {
-	MaxResults int64  `json:"MaxResults"`
-	NextToken  string `json:"NextToken"`
+	MaxResults       int64             `json:"MaxResults"`
+	NextToken        string            `json:"NextToken"`
+	ParameterFilters []ParameterFilter `json:"ParameterFilters"`
+	Shared           bool              `json:"Shared"`
 }
 
 type GetParameterItem struct {
@@ -82,6 +135,16 @@ type GetParameterItem struct {
 	Type             ParamType     `json:"Type"`
 	Value            string        `json:"Value"`
 	Version          int64         `json:"Version"`
+}
+
+type GetParametersResponse struct {
+	InvalidParameters []string           `json:"InvalidParameters"`
+	Parameters        []GetParameterItem `json:"Parameters"`
+}
+
+type GetParametersByPathResponse struct {
+	NextToken  string             `json:"NextToken"`
+	Parameters []GetParameterItem `json:"Parameters"`
 }
 
 type GetParameterResponse struct {
@@ -111,6 +174,41 @@ type DescribeParameterItem struct {
 }
 
 type DescribeParametersResponse struct {
-	Parameters []DescribeParameterItem `json:"Parameters"`
 	NextToken  string                  `json:"NextToken"`
+	Parameters []DescribeParameterItem `json:"Parameters"`
+}
+
+type ParameterArnGenerator func(string) string
+
+func (param *Parameter) toGetParameterItem(arnGenerator ParameterArnGenerator) *GetParameterItem {
+
+	return &GetParameterItem{
+		ARN:              arnGenerator(param.Name),
+		DataType:         param.DataType,
+		LastModifiedDate: param.LastModifiedDate,
+		Name:             param.Name,
+		Selector:         "",
+		SourceResult:     "",
+		Type:             param.Type,
+		Value:            param.Value,
+		Version:          param.Version,
+	}
+}
+
+func (param *Parameter) toDescribeParameterItem(arnGenerator ParameterArnGenerator) *DescribeParameterItem {
+
+	return &DescribeParameterItem{
+		AllowedPattern:   param.AllowedPattern,
+		ARN:              arnGenerator(param.Name),
+		DataType:         param.DataType,
+		Description:      param.Description,
+		KeyId:            param.KeyId,
+		LastModifiedDate: param.LastModifiedDate,
+		LastModifiedUser: param.LastModifiedUser,
+		Name:             param.Name,
+		Policies:         param.Policies,
+		Tier:             param.Tier,
+		Type:             param.Type,
+		Version:          param.Version,
+	}
 }

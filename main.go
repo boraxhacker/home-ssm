@@ -25,7 +25,7 @@ type HomeSsmConfig struct {
 }
 
 const (
-	zeroAccountId string = "000000000000"
+	ZeroAccountId string = "000000000000"
 )
 
 func main() {
@@ -51,12 +51,12 @@ func main() {
 			AccessKeyID:     cred.AccessKey,
 			SecretAccessKey: cred.SecretKey,
 			Source:          cred.Username,
-			AccountID:       zeroAccountId,
+			AccountID:       ZeroAccountId,
 		})
 		log.Printf("\tAccessKey %02d: %s\n", i+1, cred.AccessKey)
 	}
 
-	service := initialServiceOrDie(ssmConfig.Region, zeroAccountId, *dbPathPtr)
+	service := initialServiceOrDie(ssmConfig.Region, ZeroAccountId, *dbPathPtr)
 	defer service.Close()
 
 	api := ssm.NewParameterApi(service, &credentialsProvider)

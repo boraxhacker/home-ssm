@@ -94,21 +94,92 @@ func (api *ParameterApi) getParameter(w http.ResponseWriter, r *http.Request) {
 
 func (api *ParameterApi) getParameters(w http.ResponseWriter, r *http.Request) {
 
+	var request GetParametersRequest
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	response, apiErr := api.service.GetParameters(&request)
+	if response == nil {
+
+		awslib.WriteErrorResponseJSON(w, apiErr, r.URL, api.credentials.Region)
+		return
+	}
+
+	awslib.WriteSuccessResponseJSON(w, response)
 }
 
 func (api *ParameterApi) getParametersByPath(w http.ResponseWriter, r *http.Request) {
 
+	var request GetParametersByPathRequest
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	response, apiErr := api.service.GetParametersByPath(&request)
+	if response == nil {
+
+		awslib.WriteErrorResponseJSON(w, apiErr, r.URL, api.credentials.Region)
+		return
+	}
+
+	awslib.WriteSuccessResponseJSON(w, response)
 }
 
 func (api *ParameterApi) describeParameters(w http.ResponseWriter, r *http.Request) {
 
+	var request DescribeParametersRequest
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	response, apiErr := api.service.DescribeParameters(&request)
+	if response == nil {
+
+		awslib.WriteErrorResponseJSON(w, apiErr, r.URL, api.credentials.Region)
+		return
+	}
+
+	awslib.WriteSuccessResponseJSON(w, response)
 }
 
 func (api *ParameterApi) deleteParameter(w http.ResponseWriter, r *http.Request) {
 
+	var request DeleteParameterRequest
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	response, apiErr := api.service.DeleteParameter(&request)
+	if response == nil {
+
+		awslib.WriteErrorResponseJSON(w, apiErr, r.URL, api.credentials.Region)
+		return
+	}
+
+	awslib.WriteSuccessResponseJSON(w, response)
 }
 
 func (api *ParameterApi) deleteParameters(w http.ResponseWriter, r *http.Request) {
+
+	var request DeleteParametersRequest
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	response, apiErr := api.service.DeleteParameters(&request)
+	if response == nil {
+
+		awslib.WriteErrorResponseJSON(w, apiErr, r.URL, api.credentials.Region)
+		return
+	}
+
+	awslib.WriteSuccessResponseJSON(w, response)
 
 }
 

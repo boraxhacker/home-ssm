@@ -10,16 +10,22 @@ import (
 	"home-ssm/awslib"
 	"io"
 	"log"
+	"strings"
 
 	"github.com/dgraph-io/badger/v4"
 )
 
 const (
-	defaultKeyId = "aws/ssm"
+	DefaultKeyId = "aws/ssm"
 )
 
 type DataStore struct {
 	db *badger.DB
+}
+
+type KeyFilter struct {
+	Path       string
+	StartsWith bool
 }
 
 /*
@@ -40,21 +46,16 @@ func generateAesKey() ([]byte, error) {
 
 func NewDataStore(db *badger.DB) *DataStore {
 
-	return &DataStore{db: db}
-}
+	err := db.Update(func(txn *badger.Txn) error {
 
-func (ds *DataStore) initializeDataStore() error {
-
-	err := ds.db.Update(func(txn *badger.Txn) error {
-
-		_, err := txn.Get([]byte(defaultKeyId))
+		_, err := txn.Get([]byte(DefaultKeyId))
 		if err != nil && errors.Is(err, badger.ErrKeyNotFound) {
 
 			log.Println("Generating default key.")
 
 			key, err := generateAesKey()
 			if err == nil {
-				err = txn.Set([]byte(defaultKeyId), key)
+				err = txn.Set([]byte(DefaultKeyId), key)
 				return err
 			}
 		}
@@ -62,7 +63,76 @@ func (ds *DataStore) initializeDataStore() error {
 		return err
 	})
 
-	return err
+	if err != nil {
+
+		log.Panicln("Unable to create datastore.", err)
+	}
+
+	return &DataStore{db: db}
+}
+
+func (ds *DataStore) delete(key string) awslib.APIError {
+
+	err := ds.db.Update(
+		func(txn *badger.Txn) error {
+			return txn.Delete([]byte(key))
+		})
+
+	if err != nil {
+
+		if errors.Is(err, badger.ErrKeyNotFound) {
+
+			return SsmErrorCodes[ErrParameterNotFound]
+		}
+
+		log.Println("An error occurred.", err)
+		return SsmErrorCodes[ErrInternalError]
+	}
+
+	return SsmErrorCodes[ErrNone]
+}
+
+func (ds *DataStore) findParametersByKey(keyFilters []KeyFilter) ([]Parameter, awslib.APIError) {
+
+	var result []Parameter
+
+	err := ds.db.View(func(txn *badger.Txn) error {
+		opts := badger.DefaultIteratorOptions
+		opts.PrefetchValues = false
+		it := txn.NewIterator(opts)
+		defer it.Close()
+		for it.Rewind(); it.Valid(); it.Next() {
+			item := it.Item()
+			key := string(item.Key())
+			for _, keyFilter := range keyFilters {
+
+				if (keyFilter.Path == key) || (keyFilter.StartsWith && strings.HasPrefix(key, keyFilter.Path)) {
+
+					var param Parameter
+					umerr := item.Value(func(val []byte) error {
+						return json.Unmarshal(val, &param)
+					})
+
+					if umerr == nil {
+
+						result = append(result, param)
+
+					} else {
+
+						return umerr
+					}
+				}
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, SsmErrorCodes[ErrInternalError]
+	}
+
+	return result, SsmErrorCodes[ErrNone]
 }
 
 func (ds *DataStore) getParameter(key string) (*Parameter, awslib.APIError) {
@@ -101,7 +171,7 @@ func (ds *DataStore) getParameter(key string) (*Parameter, awslib.APIError) {
 func (ds *DataStore) putParameter(key string, value *Parameter, overwrite bool) (int64, awslib.APIError) {
 
 	var apiError awslib.APIError
-	var newVersion int64 = -1
+	var newVersion int64 = 1
 	var existingParam Parameter
 
 	err := ds.db.Update(func(txn *badger.Txn) error {
@@ -157,7 +227,7 @@ func (ds *DataStore) findKeyId(keyId string) ([]byte, error) {
 	err := ds.db.View(func(txn *badger.Txn) error {
 
 		if keyId == "" {
-			keyId = defaultKeyId
+			keyId = DefaultKeyId
 		}
 
 		item, err := txn.Get([]byte(keyId))

@@ -25,12 +25,6 @@ func NewParameterService(region string, accountId string, db *badger.DB) *Parame
 		dataStore: NewDataStore(db),
 	}
 
-	err := result.dataStore.initializeDataStore()
-
-	if err != nil {
-		log.Panicln("Unable to generate default key.", err)
-	}
-
 	return &result
 }
 
@@ -45,35 +39,173 @@ func (service *ParameterService) Close() {
 	}
 }
 
-func (service *ParameterService) GetParameter(request *GetParameterRequest) (*GetParameterResponse, awslib.APIError) {
+func (service *ParameterService) DeleteParameter(
+	request *DeleteParameterRequest) (*DeleteParameterResponse, awslib.APIError) {
 
-	result, apiError := service.dataStore.getParameter(request.Name)
+	if service.isInvalidParamName(request.Name) {
+		return nil, SsmErrorCodes[ErrInvalidName]
+	}
+
+	apiError := service.dataStore.delete(request.Name)
 	if apiError.Code != "" {
 		return nil, apiError
 	}
 
-	if result.Type == "SecureString" && request.WithDecryption {
+	return &DeleteParameterResponse{}, SsmErrorCodes[ErrNone]
+}
 
-		decryptedValue, err := service.dataStore.decrypt(result.Value, result.KeyId)
-		if err != nil {
-			return nil, SsmErrorCodes[ErrInvalidKeyId]
+func (service *ParameterService) DeleteParameters(
+	request *DeleteParametersRequest) (*DeleteParametersResponse, awslib.APIError) {
+
+	var response DeleteParametersResponse
+	for _, name := range request.Names {
+
+		if service.isInvalidParamName(name) {
+
+			response.InvalidParameters = append(response.InvalidParameters, name)
+
+		} else {
+
+			apiError := service.dataStore.delete(name)
+			if apiError.Code == "" {
+
+				response.DeleteParameters = append(response.DeleteParameters, name)
+
+			} else {
+
+				response.InvalidParameters = append(response.InvalidParameters, name)
+			}
+		}
+	}
+
+	return &response, SsmErrorCodes[ErrNone]
+}
+
+func (service *ParameterService) DescribeParameters(
+	request *DescribeParametersRequest) (*DescribeParametersResponse, awslib.APIError) {
+
+	var parameters []Parameter
+
+	var keyFilters []KeyFilter
+
+	for _, filter := range request.ParameterFilters {
+
+		if (filter.Key == NameKeyFilter && filter.Option == EqualsOptionFilter) ||
+			(filter.Key == NameKeyFilter && filter.Option == BeginsWithOptionFilter) {
+
+			for _, value := range filter.Values {
+
+				keyFilter := KeyFilter{
+					Path:       value,
+					StartsWith: filter.Option == BeginsWithOptionFilter,
+				}
+
+				keyFilters = append(keyFilters, keyFilter)
+			}
 		}
 
-		result.Value = decryptedValue
+		if (filter.Key == PathKeyFilter && filter.Option == EqualsOptionFilter) ||
+			(filter.Key == PathKeyFilter && filter.Option == BeginsWithOptionFilter) {
+
+			for _, value := range filter.Values {
+
+				keyFilter := KeyFilter{
+					Path:       value,
+					StartsWith: false,
+				}
+
+				keyFilters = append(keyFilters, keyFilter)
+
+				if filter.Option == BeginsWithOptionFilter {
+
+					keyFilter := KeyFilter{
+						Path:       value + "/",
+						StartsWith: true,
+					}
+
+					keyFilters = append(keyFilters, keyFilter)
+				}
+			}
+		}
+	}
+	parameters, apiError := service.dataStore.findParametersByKey(keyFilters)
+
+	if apiError.Code != "" {
+
+		return nil, apiError
+	}
+
+	var response DescribeParametersResponse
+	for _, param := range parameters {
+
+		response.Parameters = append(response.Parameters, *param.toDescribeParameterItem(service.createParameterArn))
+	}
+
+	return &response, SsmErrorCodes[ErrNone]
+}
+
+func (service *ParameterService) GetParameter(
+	request *GetParameterRequest) (*GetParameterResponse, awslib.APIError) {
+
+	result, apiError := service.getParameterByName(request.Name, request.WithDecryption)
+	if apiError.Code != "" {
+		return nil, apiError
 	}
 
 	response := GetParameterResponse{
-		Parameter: GetParameterItem{
-			ARN:              service.createParameterArn(result.Name),
-			DataType:         result.DataType,
-			LastModifiedDate: result.LastModifiedDate,
-			Name:             result.Name,
-			Selector:         "",
-			SourceResult:     "",
-			Type:             result.Type,
-			Value:            result.Value,
-			Version:          result.Version,
-		},
+		Parameter: *result.toGetParameterItem(service.createParameterArn),
+	}
+
+	return &response, SsmErrorCodes[ErrNone]
+}
+
+func (service *ParameterService) GetParameters(
+	request *GetParametersRequest) (*GetParametersResponse, awslib.APIError) {
+
+	var response GetParametersResponse
+	for _, name := range request.Names {
+
+		param, apiError := service.getParameterByName(name, request.WithDecryption)
+		if apiError.Code == "" {
+			item := param.toGetParameterItem(service.createParameterArn)
+			response.Parameters = append(response.Parameters, *item)
+		} else {
+			response.InvalidParameters = append(response.InvalidParameters, name)
+		}
+	}
+
+	return &response, SsmErrorCodes[ErrNone]
+}
+
+func (service *ParameterService) GetParametersByPath(
+	request *GetParametersByPathRequest) (*GetParametersByPathResponse, awslib.APIError) {
+
+	filters := []KeyFilter{KeyFilter{Path: request.Path, StartsWith: false}}
+	if request.Recursive {
+		filters = append(filters, KeyFilter{Path: request.Path + "/", StartsWith: true})
+	}
+
+	parameters, apiError := service.dataStore.findParametersByKey(filters)
+
+	if apiError.Code != "" {
+
+		return nil, apiError
+	}
+
+	var response GetParametersByPathResponse
+	for _, param := range parameters {
+
+		if request.WithDecryption && param.Type == SecureStringType {
+
+			decryptedValue, err := service.dataStore.decrypt(param.Value, param.KeyId)
+			if err != nil {
+				return nil, SsmErrorCodes[ErrInvalidKeyId]
+			}
+
+			param.Value = decryptedValue
+		}
+
+		response.Parameters = append(response.Parameters, *param.toGetParameterItem(service.createParameterArn))
 	}
 
 	return &response, SsmErrorCodes[ErrNone]
@@ -82,7 +214,7 @@ func (service *ParameterService) GetParameter(request *GetParameterRequest) (*Ge
 func (service *ParameterService) PutParameter(
 	creds *aws.Credentials, request *PutParameterRequest) (*PutParameterResponse, awslib.APIError) {
 
-	if !service.isValidParamName(request.Name) {
+	if service.isInvalidParamName(request.Name) {
 		return nil, SsmErrorCodes[ErrInvalidName]
 	}
 
@@ -117,7 +249,7 @@ func (service *ParameterService) PutParameter(
 			return nil, awslib.ErrorCodes[awslib.ErrInternalError]
 		}
 		param.Value = encryptedValue
-		param.KeyId = defaultKeyId
+		param.KeyId = DefaultKeyId
 	}
 
 	newVersion, apiError := service.dataStore.putParameter(param.Name, &param, request.Overwrite)
@@ -134,14 +266,38 @@ func (service *ParameterService) createUserArn(creds *aws.Credentials) string {
 	return fmt.Sprintf("arn:aws:iam::%s:user/%s", service.accountId, creds.Source)
 }
 
-func (service *ParameterService) isValidParamName(name string) bool {
+func (service *ParameterService) getParameterByName(name string, withDecryption bool) (*Parameter, awslib.APIError) {
+
+	if service.isInvalidParamName(name) {
+		return nil, SsmErrorCodes[ErrInvalidName]
+	}
+
+	result, apiError := service.dataStore.getParameter(name)
+	if apiError.Code != "" {
+		return nil, apiError
+	}
+
+	if result.Type == "SecureString" && withDecryption {
+
+		decryptedValue, err := service.dataStore.decrypt(result.Value, result.KeyId)
+		if err != nil {
+			return nil, SsmErrorCodes[ErrInvalidKeyId]
+		}
+
+		result.Value = decryptedValue
+	}
+
+	return result, SsmErrorCodes[ErrNone]
+}
+
+func (service *ParameterService) isInvalidParamName(name string) bool {
 
 	name = strings.ToLower(name)
 	if strings.HasPrefix(name, "aws") || strings.HasPrefix(name, "ssm") {
-		return false
+		return true
 	}
 
-	return true
+	return false
 }
 
 func (service *ParameterService) createParameterArn(name string) string {

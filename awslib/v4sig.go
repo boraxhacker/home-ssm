@@ -101,6 +101,8 @@ func (p *CredentialsProvider) WithSigV4(next http.HandlerFunc) http.HandlerFunc 
 			return
 		}
 
+		log.Printf("AccessKey: %s\n", signV4Values.Credential.accessKey)
+
 		// Extract all the signed headers along with its values.
 		extractedSignedHeaders, err := extractSignedHeaders(signV4Values.SignedHeaders, r)
 		if err != ErrNone {

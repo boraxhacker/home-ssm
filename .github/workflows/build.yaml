@@ -1,0 +1,33 @@
+name: Build
+on:
+  push:
+    tags: [ "v*" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: GitHub Actions environment variables
+        run: printenv | sort
+
+      - name: Clone
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build
+        run: |
+          make
+          ls -lah home-ssm*
+
+      - name: Login to Gitea Container Registry
+        run: docker login --username ${{secrets.DOCKER_USERNAME}} --password "${{secrets.DOCKER_PASSWORD}}" ${{vars.DOCKER_INSTANCE}}
+
+      - name: Build and tag Docker image
+        run: docker buildx build --tag ${{vars.DOCKER_INSTANCE}}/${{github.repository}}:${{github.ref_name}} .
+
+      - name: Push Docker image to Gitea Registry
+        run: docker push ${{vars.DOCKER_INSTANCE}}/${{github.repository}}:${{github.ref_name}}

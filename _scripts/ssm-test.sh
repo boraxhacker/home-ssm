@@ -12,7 +12,7 @@ aws ssm \
     --endpoint "${ENDPOINT}" \
     --output json \
     delete-parameters \
-    --names /user/jim /user/jean /user/trash-dump
+    --names /user/jim /user/horace /user/trash-dump
 
 
 aws ssm \
@@ -31,8 +31,8 @@ aws ssm \
     --endpoint "${ENDPOINT}" \
     --output json \
     put-parameter \
-    --name /user/jean \
-    --value jeab \
+    --name /user/horace \
+    --value horace \
     --type SecureString
 
 aws ssm \

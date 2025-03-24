@@ -14,12 +14,9 @@ import (
 	"github.com/dgraph-io/badger/v4"
 )
 
-const (
-	DefaultKeyId = "aws/ssm"
-)
-
 type DataStore struct {
-	db *badger.DB
+	db   *badger.DB
+	keys []KmsKey
 }
 
 type KeyFilter struct {
@@ -27,47 +24,15 @@ type KeyFilter struct {
 	StartsWith bool
 }
 
-/*
-AES-256 uses a 32-byte (256-bit) key
-AES-128 uses a 16-byte (128-bit) key
-AES-192 uses a 24-byte(192-bit) key
-*/
-func generateAesKey() ([]byte, error) {
-
-	key := make([]byte, 32)
-	_, err := io.ReadFull(rand.Reader, key)
-	if err != nil {
-		return nil, err
-	}
-
-	return key, nil
+type KmsKey struct {
+	KeyId string `yaml:"id"`
+	Alias string `yaml:"alias"`
+	Key   string `yaml:"key"`
 }
 
-func NewDataStore(db *badger.DB) *DataStore {
+func NewDataStore(db *badger.DB, keys []KmsKey) *DataStore {
 
-	err := db.Update(func(txn *badger.Txn) error {
-
-		_, err := txn.Get([]byte(DefaultKeyId))
-		if err != nil && errors.Is(err, badger.ErrKeyNotFound) {
-
-			log.Println("Generating default key.")
-
-			key, err := generateAesKey()
-			if err == nil {
-				err = txn.Set([]byte(DefaultKeyId), key)
-				return err
-			}
-		}
-
-		return err
-	})
-
-	if err != nil {
-
-		log.Panicln("Unable to create datastore.", err)
-	}
-
-	return &DataStore{db: db}
+	return &DataStore{db: db, keys: keys}
 }
 
 func (ds *DataStore) delete(key string) error {
@@ -207,26 +172,16 @@ func (ds *DataStore) putParameter(key string, value *Parameter, overwrite bool) 
 
 func (ds *DataStore) findKeyId(keyId string) ([]byte, error) {
 
-	var key []byte
-	err := ds.db.View(func(txn *badger.Txn) error {
+	// TODO doesn't handle ARNs
+	for _, key := range ds.keys {
 
-		if keyId == "" {
-			keyId = DefaultKeyId
+		if "alias/"+key.Alias == keyId || keyId == key.KeyId {
+
+			return base64.StdEncoding.DecodeString(key.Key)
 		}
+	}
 
-		keyId = strings.TrimPrefix(keyId, "alias/")
-
-		item, err := txn.Get([]byte(keyId))
-		if err != nil {
-			return err
-		}
-
-		key, err = item.ValueCopy(nil)
-
-		return err
-	})
-
-	return key, err
+	return nil, ErrInvalidKeyId
 }
 
 func (ds *DataStore) encrypt(stringToEncrypt string, keyId string) (string, error) {

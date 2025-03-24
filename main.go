@@ -22,6 +22,7 @@ type SsmCredentials struct {
 type HomeSsmConfig struct {
 	Region      string           `yaml:"region"`
 	Credentials []SsmCredentials `yaml:"credentials"`
+	Keys        []ssm.KmsKey     `yaml:"keys"`
 }
 
 const (
@@ -35,6 +36,7 @@ func main() {
 	flag.Parse()
 
 	ssmConfig := readAuthCredsOrDie(*configFilePtr)
+	simplePrintConfig(ssmConfig)
 
 	credentialsProvider := awslib.CredentialsProvider{
 		Service:     awslib.ServiceSsm,
@@ -43,20 +45,16 @@ func main() {
 	}
 
 	credentialsProvider.Region = ssmConfig.Region
-	log.Println("Region:", ssmConfig.Region)
-
-	log.Println("Credentials:")
-	for i, cred := range ssmConfig.Credentials {
+	for _, cred := range ssmConfig.Credentials {
 		credentialsProvider.Credentials = append(credentialsProvider.Credentials, aws.Credentials{
 			AccessKeyID:     cred.AccessKey,
 			SecretAccessKey: cred.SecretKey,
 			Source:          cred.Username,
 			AccountID:       ZeroAccountId,
 		})
-		log.Printf("\tAccessKey %02d: %s\n", i+1, cred.AccessKey)
 	}
 
-	service := initialServiceOrDie(ssmConfig.Region, ZeroAccountId, *dbPathPtr)
+	service := initialServiceOrDie(ssmConfig, ZeroAccountId, *dbPathPtr)
 	defer service.Close()
 
 	api := ssm.NewParameterApi(service, &credentialsProvider)
@@ -84,7 +82,7 @@ func readAuthCredsOrDie(configFileName string) *HomeSsmConfig {
 	return &config
 }
 
-func initialServiceOrDie(region string, accountId string, databasePath string) *ssm.ParameterService {
+func initialServiceOrDie(config *HomeSsmConfig, accountId string, databasePath string) *ssm.ParameterService {
 
 	opts := badger.DefaultOptions(databasePath).WithLoggingLevel(badger.ERROR)
 	db, err := badger.Open(opts)
@@ -92,5 +90,22 @@ func initialServiceOrDie(region string, accountId string, databasePath string) *
 		log.Panicln("Error opening badger db:", err)
 	}
 
-	return ssm.NewParameterService(region, accountId, db)
+	dataStore := ssm.NewDataStore(db, config.Keys)
+
+	return ssm.NewParameterService(config.Region, accountId, dataStore)
+}
+
+func simplePrintConfig(config *HomeSsmConfig) {
+
+	log.Println("Region:", config.Region)
+
+	log.Println("Credentials:")
+	for i, cred := range config.Credentials {
+		log.Printf("\tAccessKey %02d: %s\n", i+1, cred.AccessKey)
+	}
+
+	log.Println("Keys:")
+	for i, key := range config.Keys {
+		log.Printf("\tKMS Key %02d: alias/%s\n", i+1, key.Alias)
+	}
 }

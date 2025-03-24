@@ -17,12 +17,12 @@ type ParameterService struct {
 	region    string
 }
 
-func NewParameterService(region string, accountId string, db *badger.DB) *ParameterService {
+func NewParameterService(region string, accountId string, dataStore *DataStore) *ParameterService {
 
 	result := ParameterService{
 		region:    region,
 		accountId: accountId,
-		dataStore: NewDataStore(db),
+		dataStore: dataStore,
 	}
 
 	return &result
@@ -276,15 +276,21 @@ func (service *ParameterService) PutParameter(
 	}
 
 	if request.Type == SecureStringType {
-		encryptedValue, err := service.dataStore.encrypt(param.Value, DefaultKeyId)
+
+		param.KeyId = request.KeyId
+		if param.KeyId == "" {
+			param.KeyId = "alias/" + service.dataStore.keys[0].Alias
+		}
+
+		encryptedValue, err := service.dataStore.encrypt(param.Value, param.KeyId)
 		if err != nil {
 			if errors.Is(err, badger.ErrKeyNotFound) {
 				return nil, ErrInvalidKeyId
 			}
 			return nil, ErrInternalError
 		}
+
 		param.Value = encryptedValue
-		param.KeyId = "alias/" + DefaultKeyId
 	}
 
 	newVersion, err := service.dataStore.putParameter(string(param.Name), &param, request.Overwrite)

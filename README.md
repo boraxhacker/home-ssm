@@ -59,11 +59,11 @@ Usage of ./home-ssm:
 
 ### home-ssm-config.yaml
 
-Region and one value for each stanza, credentials and keys, is required.
+Region and one value for each stanza, credentials and keys, is required. The application uses the first Key as the default key.
 
 Region, AccessKey, SecretKey, Username, Alias, KeyId are arbitrary though you'll probably want consistancy with ~/.aws/{config,credentials} files. 
 
-The credentials are used for authenticating the v4sig headers;no PBAC is enforced.
+The credentials are used for authenticating the v4sig headers; no PBAC is enforced.
 
 The Key data value must be base64 encoded; see comments below. Parameters of type SecureString are encrypted and decrypted based on the KeyId argument. Config ID and Alias values are used for lookup of the KeyId argument. 
 

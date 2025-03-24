@@ -34,6 +34,7 @@ func (api *ParameterApi) Handle(w http.ResponseWriter, r *http.Request) {
 
 	creds, err := api.parseCredentials(r)
 	if err != nil {
+		log.Println("Error:", err)
 		awslib.WriteErrorResponseJSON(w, awslib.ErrorCodes[awslib.ErrInternalError], r.URL, api.credentials.Region)
 		return
 	}
@@ -82,10 +83,10 @@ func (api *ParameterApi) getParameter(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response, apiErr := api.service.GetParameter(&request)
-	if response == nil {
-
-		awslib.WriteErrorResponseJSON(w, apiErr, r.URL, api.credentials.Region)
+	response, err := api.service.GetParameter(&request)
+	if err != nil {
+		log.Println("Error:", err)
+		awslib.WriteErrorResponseJSON(w, translateToApiError(err), r.URL, api.credentials.Region)
 		return
 	}
 
@@ -100,10 +101,11 @@ func (api *ParameterApi) getParameters(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response, apiErr := api.service.GetParameters(&request)
-	if response == nil {
+	response, err := api.service.GetParameters(&request)
+	if err != nil {
 
-		awslib.WriteErrorResponseJSON(w, apiErr, r.URL, api.credentials.Region)
+		log.Println("Error:", err)
+		awslib.WriteErrorResponseJSON(w, translateToApiError(err), r.URL, api.credentials.Region)
 		return
 	}
 
@@ -118,10 +120,11 @@ func (api *ParameterApi) getParametersByPath(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response, apiErr := api.service.GetParametersByPath(&request)
-	if response == nil {
+	response, err := api.service.GetParametersByPath(&request)
+	if err != nil {
 
-		awslib.WriteErrorResponseJSON(w, apiErr, r.URL, api.credentials.Region)
+		log.Println("Error:", err)
+		awslib.WriteErrorResponseJSON(w, translateToApiError(err), r.URL, api.credentials.Region)
 		return
 	}
 
@@ -136,10 +139,11 @@ func (api *ParameterApi) describeParameters(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	response, apiErr := api.service.DescribeParameters(&request)
-	if response == nil {
+	response, err := api.service.DescribeParameters(&request)
+	if err != nil {
 
-		awslib.WriteErrorResponseJSON(w, apiErr, r.URL, api.credentials.Region)
+		log.Println("Error:", err)
+		awslib.WriteErrorResponseJSON(w, translateToApiError(err), r.URL, api.credentials.Region)
 		return
 	}
 
@@ -154,10 +158,11 @@ func (api *ParameterApi) deleteParameter(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	response, apiErr := api.service.DeleteParameter(&request)
-	if response == nil {
+	response, err := api.service.DeleteParameter(&request)
+	if err != nil {
 
-		awslib.WriteErrorResponseJSON(w, apiErr, r.URL, api.credentials.Region)
+		log.Println("Error:", err)
+		awslib.WriteErrorResponseJSON(w, translateToApiError(err), r.URL, api.credentials.Region)
 		return
 	}
 
@@ -172,10 +177,11 @@ func (api *ParameterApi) deleteParameters(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	response, apiErr := api.service.DeleteParameters(&request)
-	if response == nil {
+	response, err := api.service.DeleteParameters(&request)
+	if err != nil {
 
-		awslib.WriteErrorResponseJSON(w, apiErr, r.URL, api.credentials.Region)
+		log.Println("Error:", err)
+		awslib.WriteErrorResponseJSON(w, translateToApiError(err), r.URL, api.credentials.Region)
 		return
 	}
 
@@ -191,10 +197,11 @@ func (api *ParameterApi) putParameter(creds *aws.Credentials, w http.ResponseWri
 		return
 	}
 
-	response, apiErr := api.service.PutParameter(creds, &request)
-	if response == nil {
+	response, err := api.service.PutParameter(creds, &request)
+	if err != nil {
 
-		awslib.WriteErrorResponseJSON(w, apiErr, r.URL, api.credentials.Region)
+		log.Println("Error:", err)
+		awslib.WriteErrorResponseJSON(w, translateToApiError(err), r.URL, api.credentials.Region)
 		return
 	}
 

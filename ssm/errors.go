@@ -1,64 +1,92 @@
 package ssm
 
 import (
+	"errors"
 	"home-ssm/awslib"
 	"net/http"
 )
 
-type SsmErrorCode int
-
-type errorCodeMap map[SsmErrorCode]awslib.APIError
-
-const (
-	ErrNone SsmErrorCode = iota
-	ErrParameterNotFound
-	ErrParameterAlreadyExists
-	ErrInternalError
-	ErrInvalidKeyId
-	ErrInvalidName
-	ErrInvalidTier
-	ErrUnsupportedParameterType
+var (
+	ErrParameterNotFound        = errors.New("The Parameter Name provided does not exist.")
+	ErrParameterAlreadyExists   = errors.New("The parameter already exists. You can't create duplicate parameters.")
+	ErrInternalError            = errors.New("We encountered an internal error, please try again.")
+	ErrInvalidKeyId             = errors.New("The Parameter KeyId is not valid.")
+	ErrInvalidName              = errors.New("The Parameter Name is not valid.")
+	ErrInvalidTier              = errors.New("The Parameter Tier is not valid.")
+	ErrInvalidDataType          = errors.New("The Parameter DataType is not valid.")
+	ErrInvalidFilterKey         = errors.New("The specified key isn't valid.")
+	ErrInvalidFilterOption      = errors.New("The specified filter option isn't valid. Valid options are Equals and BeginsWith. For Path filter, valid options are Recursive and OneLevel.")
+	ErrInvalidFilterValue       = errors.New("The filter value isn't valid. Verify the value and try again.")
+	ErrUnsupportedParameterType = errors.New("The Parameter Type is not supported.")
 )
 
+type errorCodeMap map[error]awslib.APIError
+
 var SsmErrorCodes = errorCodeMap{
-	ErrNone: {
-		Code:           "",
-		Description:    "No Error.",
-		HTTPStatusCode: http.StatusOK,
-	},
 	ErrInternalError: {
 		Code:           "InternalError",
-		Description:    "We encountered an internal error, please try again.",
+		Description:    ErrInternalError.Error(),
 		HTTPStatusCode: http.StatusInternalServerError,
 	},
 	ErrParameterNotFound: {
 		Code:           "ParameterNotFound",
-		Description:    "The Parameter Name provided does not exist.",
+		Description:    ErrParameterNotFound.Error(),
 		HTTPStatusCode: http.StatusBadRequest,
 	},
 	ErrParameterAlreadyExists: {
 		Code:           "ParameterAlreadyExists",
-		Description:    "The Parameter Name provided already exists.",
+		Description:    ErrParameterAlreadyExists.Error(),
 		HTTPStatusCode: http.StatusBadRequest,
 	},
 	ErrUnsupportedParameterType: {
 		Code:           "UnsupportedParameterType",
-		Description:    "The Parameter Type is not supported.",
+		Description:    ErrUnsupportedParameterType.Error(),
 		HTTPStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidKeyId: {
 		Code:           "InvalidKeyId",
-		Description:    "The Parameter KeyId is not valid.",
+		Description:    ErrInternalError.Error(),
 		HTTPStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidName: {
 		Code:           "InvalidParameterName",
-		Description:    "The Parameter Name is not valid.",
+		Description:    ErrInvalidName.Error(),
+		HTTPStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidDataType: {
+		Code:           "InvalidDataType",
+		Description:    ErrInvalidDataType.Error(),
 		HTTPStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidTier: {
 		Code:           "InvalidParameterTier",
-		Description:    "The Parameter Tier is not valid.",
+		Description:    ErrInvalidTier.Error(),
 		HTTPStatusCode: http.StatusBadRequest,
 	},
+	ErrInvalidFilterKey: {
+		Code:           "InvalidParameterTier",
+		Description:    ErrInvalidFilterKey.Error(),
+		HTTPStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidFilterOption: {
+		Code:           "InvalidFilterOption",
+		Description:    ErrInvalidFilterOption.Error(),
+		HTTPStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidFilterValue: {
+		Code:           "InvalidFilterValue",
+		Description:    ErrInvalidFilterValue.Error(),
+		HTTPStatusCode: http.StatusBadRequest,
+	},
+}
+
+func translateToApiError(err error) awslib.APIError {
+
+	value, ok := SsmErrorCodes[err]
+	if ok {
+
+		return value
+	}
+
+	return awslib.ErrorCodes[awslib.ErrInternalError]
 }

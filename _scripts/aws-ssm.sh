@@ -1,7 +1,7 @@
 #!/bin/bash
 
 REGION=us-east-1
-PROFILE=home-ssm
+PROFILE=test-ssm
 ENDPOINT=http://localhost:9080/ssm
 
 aws ssm \

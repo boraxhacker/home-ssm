@@ -7,7 +7,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"home-ssm/awslib"
 	"io"
 	"log"
 	"strings"
@@ -71,7 +70,7 @@ func NewDataStore(db *badger.DB) *DataStore {
 	return &DataStore{db: db}
 }
 
-func (ds *DataStore) delete(key string) awslib.APIError {
+func (ds *DataStore) delete(key string) error {
 
 	err := ds.db.Update(
 		func(txn *badger.Txn) error {
@@ -82,17 +81,16 @@ func (ds *DataStore) delete(key string) awslib.APIError {
 
 		if errors.Is(err, badger.ErrKeyNotFound) {
 
-			return SsmErrorCodes[ErrParameterNotFound]
+			return ErrParameterNotFound
 		}
 
-		log.Println("An error occurred.", err)
-		return SsmErrorCodes[ErrInternalError]
+		return err
 	}
 
-	return SsmErrorCodes[ErrNone]
+	return nil
 }
 
-func (ds *DataStore) findParametersByKey(keyFilters []KeyFilter) ([]Parameter, awslib.APIError) {
+func (ds *DataStore) findParametersByKey(keyFilters []KeyFilter) ([]Parameter, error) {
 
 	var result []Parameter
 
@@ -129,24 +127,22 @@ func (ds *DataStore) findParametersByKey(keyFilters []KeyFilter) ([]Parameter, a
 	})
 
 	if err != nil {
-		return nil, SsmErrorCodes[ErrInternalError]
+		return nil, err
 	}
 
-	return result, SsmErrorCodes[ErrNone]
+	return result, nil
 }
 
-func (ds *DataStore) getParameter(key string) (*Parameter, awslib.APIError) {
+func (ds *DataStore) getParameter(key string) (*Parameter, error) {
 
 	var param Parameter
-	var apiError awslib.APIError
 
 	err := ds.db.View(func(txn *badger.Txn) error {
 		item, err := txn.Get([]byte(key))
 		if err != nil {
 			if errors.Is(err, badger.ErrKeyNotFound) {
 
-				apiError = SsmErrorCodes[ErrParameterNotFound]
-				return errors.New(apiError.Description)
+				return ErrParameterNotFound
 			}
 
 			return err
@@ -159,18 +155,14 @@ func (ds *DataStore) getParameter(key string) (*Parameter, awslib.APIError) {
 
 	if err != nil {
 		log.Println("An error occurred.", err)
-		if apiError.Code == "" {
-			return nil, SsmErrorCodes[ErrInternalError]
-		}
-		return nil, apiError
+		return nil, err
 	}
 
-	return &param, SsmErrorCodes[ErrNone]
+	return &param, nil
 }
 
-func (ds *DataStore) putParameter(key string, value *Parameter, overwrite bool) (int64, awslib.APIError) {
+func (ds *DataStore) putParameter(key string, value *Parameter, overwrite bool) (int64, error) {
 
-	var apiError awslib.APIError
 	var newVersion int64 = 1
 	var existingParam Parameter
 
@@ -183,27 +175,23 @@ func (ds *DataStore) putParameter(key string, value *Parameter, overwrite bool) 
 			if err := item.Value(func(val []byte) error {
 				return json.Unmarshal(val, &existingParam)
 			}); err != nil {
-				apiError = SsmErrorCodes[ErrInternalError]
 				return err
 			}
 
 			if !overwrite {
-				apiError = SsmErrorCodes[ErrParameterAlreadyExists]
-				return errors.New(apiError.Description)
+				return ErrParameterAlreadyExists
 			}
 
 			newVersion = existingParam.Version + 1
 
 		} else if !errors.Is(err, badger.ErrKeyNotFound) {
 
-			apiError = SsmErrorCodes[ErrInternalError]
-			return errors.New(apiError.Description)
+			return err
 		}
 
 		value.Version = newVersion
 		paramBytes, err := json.Marshal(value)
 		if err != nil {
-			apiError = SsmErrorCodes[ErrInternalError]
 			return err
 		}
 
@@ -211,14 +199,10 @@ func (ds *DataStore) putParameter(key string, value *Parameter, overwrite bool) 
 	})
 
 	if err != nil {
-		log.Println("An error occurred.", err)
-		if apiError.Code == "" {
-			return -1, SsmErrorCodes[ErrInternalError]
-		}
-		return -1, apiError
+		return -1, err
 	}
 
-	return newVersion, SsmErrorCodes[ErrNone]
+	return newVersion, nil
 }
 
 func (ds *DataStore) findKeyId(keyId string) ([]byte, error) {

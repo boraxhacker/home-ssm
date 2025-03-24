@@ -15,6 +15,7 @@ For example, using home-ssm, one could:
 AWS CLI
 
 ```shell
+
 #!/bin/bash
 
 REGION=us-east-1
@@ -30,23 +31,31 @@ aws ssm \
     --name /home/mydb/password \
     --type SecureString \
     --value some-long-password
-
 ```
 
 Terraform:
 
 ```terraform
 
+provider "aws" {
+  profile = "home-ssm"
+  region  = "us-east-1"
+
+  endpoints {
+    ssm = "http://localhost:9080/ssm"
+  }
+}
+
 data "aws_ssm_parameter" "database_password" {
    name = "/home/mydb/password"
    with_decryption = true
 }
-
 ```
 
 ## Execution
 
 ```shell
+
 ./home-ssm -help
 Usage of ./home-ssm:
   -config string

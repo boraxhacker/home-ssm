@@ -214,6 +214,8 @@ func (ds *DataStore) findKeyId(keyId string) ([]byte, error) {
 			keyId = DefaultKeyId
 		}
 
+		keyId = strings.TrimPrefix(keyId, "alias/")
+
 		item, err := txn.Get([]byte(keyId))
 		if err != nil {
 			return err

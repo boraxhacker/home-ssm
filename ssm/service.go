@@ -1,6 +1,7 @@
 package ssm
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"strings"
@@ -275,12 +276,15 @@ func (service *ParameterService) PutParameter(
 	}
 
 	if request.Type == SecureStringType {
-		encryptedValue, err := service.dataStore.encrypt(param.Value, request.KeyId)
+		encryptedValue, err := service.dataStore.encrypt(param.Value, DefaultKeyId)
 		if err != nil {
+			if errors.Is(err, badger.ErrKeyNotFound) {
+				return nil, ErrInvalidKeyId
+			}
 			return nil, ErrInternalError
 		}
 		param.Value = encryptedValue
-		param.KeyId = DefaultKeyId
+		param.KeyId = "alias/" + DefaultKeyId
 	}
 
 	newVersion, err := service.dataStore.putParameter(string(param.Name), &param, request.Overwrite)
@@ -313,7 +317,10 @@ func (service *ParameterService) getParameterByName(name ParamName, withDecrypti
 
 		decryptedValue, err := service.dataStore.decrypt(result.Value, result.KeyId)
 		if err != nil {
-			return nil, ErrInvalidKeyId
+			if errors.Is(err, badger.ErrKeyNotFound) {
+				return nil, ErrInvalidKeyId
+			}
+			return nil, ErrInternalError
 		}
 
 		result.Value = decryptedValue

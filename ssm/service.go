@@ -90,7 +90,7 @@ func (service *ParameterService) DescribeParameters(
 
 	var parameters []Parameter
 
-	var keyFilters []KeyFilter
+	var filters []string
 
 	for _, filter := range request.ParameterFilters {
 
@@ -104,53 +104,43 @@ func (service *ParameterService) DescribeParameters(
 
 			for _, value := range filter.Values {
 
-				err := ParamName(value).CheckValidity()
+				paramName := ParamName(value)
+				err := paramName.CheckValidity()
 				if err != nil {
-					return nil, ErrInvalidName
+					return nil, err
 				}
 
-				keyFilter := KeyFilter{
-					Path:       value,
-					StartsWith: filter.Option == BeginsWithOptionFilter,
-				}
+				if filter.Option == BeginsWithOptionFilter {
 
-				keyFilters = append(keyFilters, keyFilter)
+					filters = append(filters, paramName.asBeginsWithRegex())
+				} else {
+
+					filters = append(filters, paramName.asEqualsRegex())
+				}
 			}
 		}
 
 		if (filter.Key == PathKeyFilter && filter.Option == RecursiveOptionFilter) ||
 			(filter.Key == PathKeyFilter && filter.Option == OneLevelOptionFilter) {
 
-			// TODO not right
-
 			for _, value := range filter.Values {
 
-				err := ParamName(value).CheckValidity()
+				paramPath := ParamPath(value)
+				err := paramPath.CheckValidity()
 				if err != nil {
-					return nil, ErrInvalidName
+					return nil, err
 				}
-
-				keyFilter := KeyFilter{
-					Path:       value,
-					StartsWith: false,
-				}
-
-				keyFilters = append(keyFilters, keyFilter)
 
 				if filter.Option == RecursiveOptionFilter {
-
-					keyFilter := KeyFilter{
-						Path:       value + "/",
-						StartsWith: true,
-					}
-
-					keyFilters = append(keyFilters, keyFilter)
+					filters = append(filters, paramPath.asRecursiveRegex())
+				} else {
+					filters = append(filters, paramPath.asOneLevelRegex())
 				}
 			}
 		}
 	}
 
-	parameters, err := service.dataStore.findParametersByKey(keyFilters)
+	parameters, err := service.dataStore.findParametersByKey(filters)
 	if err != nil {
 
 		return nil, err
@@ -159,7 +149,8 @@ func (service *ParameterService) DescribeParameters(
 	var response DescribeParametersResponse
 	for _, param := range parameters {
 
-		response.Parameters = append(response.Parameters, *param.toDescribeParameterItem(service.createParameterArn))
+		response.Parameters = append(response.Parameters,
+			*param.toDescribeParameterItem(service.createParameterArn))
 	}
 
 	return &response, nil
@@ -203,9 +194,9 @@ func (service *ParameterService) GetParametersByPath(
 
 	// TODO incomplete implementation
 
-	err := ParamName(request.Path).CheckValidity()
+	err := request.Path.CheckValidity()
 	if err != nil {
-		return nil, ErrInvalidName
+		return nil, err
 	}
 
 	for _, filter := range request.ParameterFilters {
@@ -215,9 +206,11 @@ func (service *ParameterService) GetParametersByPath(
 		}
 	}
 
-	filters := []KeyFilter{{Path: request.Path, StartsWith: false}}
+	var filters []string
 	if request.Recursive {
-		filters = append(filters, KeyFilter{Path: request.Path + "/", StartsWith: true})
+		filters = append(filters, request.Path.asRecursiveRegex())
+	} else {
+		filters = append(filters, request.Path.asOneLevelRegex())
 	}
 
 	parameters, err := service.dataStore.findParametersByKey(filters)
@@ -239,7 +232,8 @@ func (service *ParameterService) GetParametersByPath(
 			param.Value = decryptedValue
 		}
 
-		response.Parameters = append(response.Parameters, *param.toGetParameterItem(service.createParameterArn))
+		response.Parameters = append(response.Parameters,
+			*param.toGetParameterItem(service.createParameterArn))
 	}
 
 	return &response, nil

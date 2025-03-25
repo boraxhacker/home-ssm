@@ -12,8 +12,7 @@ aws ssm \
     --endpoint "${ENDPOINT}" \
     --output json \
     delete-parameters \
-    --names /user/jim /user/horace /user/trash-dump
-
+    --names /user/jim /user/horace /user/larry /user/frances /user/jim/friends /user/trash-dump
 
 aws ssm \
     --region ${REGION} \
@@ -34,6 +33,36 @@ aws ssm \
     --name /user/horace \
     --value horace \
     --type SecureString
+
+aws ssm \
+    --region ${REGION} \
+    --profile ${PROFILE} \
+    --endpoint "${ENDPOINT}" \
+    --output json \
+    put-parameter \
+    --name /user/larry \
+    --value larry \
+    --type SecureString
+
+aws ssm \
+    --region ${REGION} \
+    --profile ${PROFILE} \
+    --endpoint "${ENDPOINT}" \
+    --output json \
+    put-parameter \
+    --name /user/frances \
+    --value frances \
+    --type SecureString
+
+aws ssm \
+    --region ${REGION} \
+    --profile ${PROFILE} \
+    --endpoint "${ENDPOINT}" \
+    --output json \
+    put-parameter \
+    --name /user/jim/friends \
+    --value horace,frances \
+    --type StringList
 
 aws ssm \
     --region ${REGION} \
@@ -68,5 +97,21 @@ aws ssm \
     describe-parameters \
     --parameter-filters Key=Path,Option=Recursive,Values=/user
 
+aws ssm \
+    --region ${REGION} \
+    --profile ${PROFILE} \
+    --endpoint "${ENDPOINT}" \
+    --output json \
+    get-parameters-by-path \
+    --path /user
+
+aws ssm \
+    --region ${REGION} \
+    --profile ${PROFILE} \
+    --endpoint "${ENDPOINT}" \
+    --output json \
+    get-parameters-by-path \
+    --path /user/jim \
+    --recursive
 
 

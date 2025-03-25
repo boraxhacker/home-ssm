@@ -2,7 +2,8 @@
 
 A home lab implementation of AWS SSM Stored Parameter API.
 
-> **_NOTE:_** Use at your own risk. There isn't PBAC nor robust validation and error checking. The implementation is at best "mostly" consistent with the real thing.
+> **_NOTE:_** Use at your own risk. There isn't PBAC nor robust validation and error checking. 
+> The implementation is at best "mostly" consistent with the real thing.
 
 ## Overview
 

@@ -7,21 +7,15 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"github.com/dgraph-io/badger/v4"
 	"io"
 	"log"
-	"strings"
-
-	"github.com/dgraph-io/badger/v4"
+	"regexp"
 )
 
 type DataStore struct {
 	db   *badger.DB
 	keys []KmsKey
-}
-
-type KeyFilter struct {
-	Path       string
-	StartsWith bool
 }
 
 type KmsKey struct {
@@ -55,7 +49,7 @@ func (ds *DataStore) delete(key string) error {
 	return nil
 }
 
-func (ds *DataStore) findParametersByKey(keyFilters []KeyFilter) ([]Parameter, error) {
+func (ds *DataStore) findParametersByKey(filters []string) ([]Parameter, error) {
 
 	var result []Parameter
 
@@ -67,9 +61,10 @@ func (ds *DataStore) findParametersByKey(keyFilters []KeyFilter) ([]Parameter, e
 		for it.Rewind(); it.Valid(); it.Next() {
 			item := it.Item()
 			key := string(item.Key())
-			for _, keyFilter := range keyFilters {
+			for _, filter := range filters {
 
-				if (keyFilter.Path == key) || (keyFilter.StartsWith && strings.HasPrefix(key, keyFilter.Path)) {
+				match, _ := regexp.MatchString(filter, key)
+				if match {
 
 					var param Parameter
 					umerr := item.Value(func(val []byte) error {
@@ -84,6 +79,8 @@ func (ds *DataStore) findParametersByKey(keyFilters []KeyFilter) ([]Parameter, e
 
 						return umerr
 					}
+
+					break
 				}
 			}
 		}

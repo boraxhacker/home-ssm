@@ -17,6 +17,46 @@ func (p ParamName) CheckValidity() error {
 	return nil
 }
 
+func (p ParamName) asBeginsWithRegex() string {
+
+	name := ParamName(strings.TrimSuffix(string(p), "/"))
+
+	return "^" + string(name) + "/.*"
+}
+
+func (p ParamName) asEqualsRegex() string {
+
+	name := ParamName(strings.TrimSuffix(string(p), "/"))
+
+	return "^" + string(name) + "$"
+}
+
+type ParamPath string
+
+func (p ParamPath) CheckValidity() error {
+
+	if strings.HasPrefix(string(p), "/") {
+
+		return ParamName(p).CheckValidity()
+	}
+
+	return ErrInvalidPath
+}
+
+func (p ParamPath) asRecursiveRegex() string {
+
+	path := ParamPath(strings.TrimSuffix(string(p), "/"))
+
+	return "^" + string(path) + "/.*"
+}
+
+func (p ParamPath) asOneLevelRegex() string {
+
+	path := ParamPath(strings.TrimSuffix(string(p), "/"))
+
+	return "^" + string(path) + "/[^/]+$"
+}
+
 type Parameter struct {
 	AllowedPattern   string               `json:"AllowedPattern"`
 	DataType         ParamDataType        `json:"DataType"`
@@ -47,7 +87,7 @@ type GetParametersByPathRequest struct {
 	MaxResults       int64             `json:"MaxResults"`
 	NextToken        string            `json:"NextToken"`
 	ParameterFilters []ParameterFilter `json:"ParameterFilters"`
-	Path             string            `json:"Path"`
+	Path             ParamPath         `json:"Path"`
 	Recursive        bool              `json:"Recursive"`
 	WithDecryption   bool              `json:"WithDecryption"`
 }
@@ -205,9 +245,6 @@ func (filter *ParameterFilter) CheckValidity() error {
 	}
 
 	return nil
-}
-
-type DeleteParametesResponse struct {
 }
 
 type DeleteParametersResponse struct {

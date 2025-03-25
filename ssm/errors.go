@@ -18,6 +18,7 @@ var (
 	ErrInvalidFilterOption      = errors.New("The specified filter option isn't valid. Valid options are Equals and BeginsWith. For Path filter, valid options are Recursive and OneLevel.")
 	ErrInvalidFilterValue       = errors.New("The filter value isn't valid. Verify the value and try again.")
 	ErrUnsupportedParameterType = errors.New("The Parameter Type is not supported.")
+	ErrInvalidPath              = errors.New("The parameter doesn't meet the parameter name requirements. The parameter name must begin with a forward slash '/'.")
 )
 
 type errorCodeMap map[error]awslib.APIError
@@ -76,6 +77,11 @@ var SsmErrorCodes = errorCodeMap{
 	ErrInvalidFilterValue: {
 		Code:           "InvalidFilterValue",
 		Description:    ErrInvalidFilterValue.Error(),
+		HTTPStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidPath: {
+		Code:           "ValidationException",
+		Description:    ErrInvalidPath.Error(),
 		HTTPStatusCode: http.StatusBadRequest,
 	},
 }

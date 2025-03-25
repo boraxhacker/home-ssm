@@ -52,19 +52,6 @@ data "aws_ssm_parameter" "database_password" {
    with_decryption = true
 }
 ```
-
-## Execution
-
-```shell
-
-./home-ssm -help
-Usage of ./home-ssm:
-  -config string
-    	Path to the home-ssm config file. (default ".home-ssm-config.yaml")
-  -db-path string
-    	Path to badger database folder. (default ".home-ssm-db")
-```
-
 ## Configuration
 
 ### home-ssm-config.yaml
@@ -95,4 +82,15 @@ keys:
     id:  d0c49d70-4fae-4a20-84f0-d03fb6d670cb
     key: rvl7SbrNObB5MMQDUUAoInJXpyCA3QDqELyuwa2G48M=
 
+```
+## Execution
+
+```shell
+
+./home-ssm -help
+Usage of ./home-ssm:
+  -config string
+    	Path to the home-ssm config file. (default ".home-ssm-config.yaml")
+  -db-path string
+    	Path to badger database folder. (default ".home-ssm-db")
 ```

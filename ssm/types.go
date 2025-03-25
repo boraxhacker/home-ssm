@@ -10,25 +10,33 @@ type ParamName string
 func (p ParamName) CheckValidity() error {
 
 	name := strings.TrimPrefix(strings.ToLower(string(p)), "/")
-	if strings.HasPrefix(name, "aws") || strings.HasPrefix(name, "ssm") {
+	if strings.HasPrefix(name, "aws") ||
+		strings.HasPrefix(name, "ssm") ||
+		strings.HasSuffix(name, "/") {
+
 		return ErrInvalidName
 	}
 
 	return nil
 }
 
+func (p ParamName) asPathName() ParamName {
+
+	if strings.HasPrefix(string(p), "/") {
+		return p
+	}
+
+	return ParamName("/" + string(p))
+}
+
 func (p ParamName) asBeginsWithRegex() string {
 
-	name := ParamName(strings.TrimSuffix(string(p), "/"))
-
-	return "^" + string(name) + "/.*"
+	return "^" + string(p.asPathName()) + "/.*"
 }
 
 func (p ParamName) asEqualsRegex() string {
 
-	name := ParamName(strings.TrimSuffix(string(p), "/"))
-
-	return "^" + string(name) + "$"
+	return "^" + string(p.asPathName()) + "$"
 }
 
 type ParamPath string
@@ -37,7 +45,7 @@ func (p ParamPath) CheckValidity() error {
 
 	if strings.HasPrefix(string(p), "/") {
 
-		return ParamName(p).CheckValidity()
+		return ParamName(strings.TrimSuffix(string(p), "/")).CheckValidity()
 	}
 
 	return ErrInvalidPath

@@ -9,7 +9,7 @@ A home lab implementation of AWS SSM Stored Parameter API.
 
 This project (kinda, sorta) implements AWS SSM Stored Parameter API. The goal is to enable the use of well known frameworks, such as Terraform, in the home lab setting.
 
-For example, using home-ssm, one could: 
+For example, using home-ssm, it's possible to: 
 * put-parameter using AWS CLI 
 * get-parameter using Terraform
 

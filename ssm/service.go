@@ -47,7 +47,7 @@ func (service *ParameterService) DeleteParameter(
 		return nil, ErrInvalidName
 	}
 
-	err = service.dataStore.delete(string(request.Name))
+	err = service.dataStore.delete(string(request.Name.asPathName()))
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +68,7 @@ func (service *ParameterService) DeleteParameters(
 
 		} else {
 
-			err := service.dataStore.delete(string(name))
+			err := service.dataStore.delete(string(name.asPathName()))
 			if err == nil {
 
 				response.DeleteParameters = append(response.DeleteParameters, name)
@@ -253,7 +253,7 @@ func (service *ParameterService) PutParameter(
 		Description:      request.Description,
 		LastModifiedDate: float64(time.Now().UnixNano()) / float64(time.Second),
 		LastModifiedUser: service.createUserArn(creds),
-		Name:             request.Name,
+		Name:             request.Name.asPathName(),
 		Policies:         request.Policies,
 		Tags:             request.Tags,
 		Tier:             request.Tier,
@@ -308,10 +308,13 @@ func (service *ParameterService) getParameterByName(name ParamName, withDecrypti
 		return nil, ErrInvalidName
 	}
 
-	result, err := service.dataStore.getParameter(string(name))
+	result, err := service.dataStore.getParameter(string(name.asPathName()))
 	if err != nil {
 		return nil, err
 	}
+
+	// always stored as path but if requested by name then return the name
+	result.Name = name
 
 	if result.Type == "SecureString" && withDecryption {
 

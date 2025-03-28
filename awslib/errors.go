@@ -129,7 +129,7 @@ var ErrorCodes = errorCodeMap{
 	},
 	ErrInvalidServiceSSM: {
 		Code:           "AuthorizationParametersError",
-		Description:    "Error parsing the Credential/X-Amz-Credential parameter; incorrect service. This endpoint belongs to \"s3\".",
+		Description:    "Error parsing the Credential/X-Amz-Credential parameter; incorrect service. This endpoint belongs to \"ssm\".",
 		HTTPStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidRequestVersion: {

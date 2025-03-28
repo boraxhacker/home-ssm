@@ -19,8 +19,6 @@ const (
 	mimeNone mimeType = ""
 	// Means response type is JSON.
 	mimeJSON mimeType = "application/json"
-	// Means response type is XML.
-	mimeXML mimeType = "application/xml"
 )
 
 // getErrorResponse gets in standard error and resource value and
@@ -39,7 +37,11 @@ func createAPIErrorResponse(
 }
 
 func WriteSuccessResponseJSON(w http.ResponseWriter, response interface{}) {
-	writeResponse(w, http.StatusOK, encodeResponseJSON(response), mimeJSON)
+
+	encodedResponse := encodeResponseJSON(response)
+	// log.Println("Response", string(encodedResponse))
+
+	writeResponse(w, http.StatusOK, encodedResponse, mimeJSON)
 }
 
 // WriteErrorResponseJSON  - writes error response in JSON format;

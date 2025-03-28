@@ -81,8 +81,8 @@ keys:
   - alias: home-ssm
     id:  d0c49d70-4fae-4a20-84f0-d03fb6d670cb
     key: rvl7SbrNObB5MMQDUUAoInJXpyCA3QDqELyuwa2G48M=
-
 ```
+
 ## Execution
 
 ```shell

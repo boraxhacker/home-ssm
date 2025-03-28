@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	awsssm "github.com/aws/aws-sdk-go-v2/service/ssm"
 )
 
 type ParameterApi struct {
@@ -69,15 +70,28 @@ func (api *ParameterApi) Handle(w http.ResponseWriter, r *http.Request) {
 
 		api.putParameter(creds, w, r)
 
+	} else if amztarget == "AmazonSSM.ListTagsForResource" {
+
+		api.listTagsForResource(w, r)
+
+	} else if amztarget == "AmazonSSM.AddTagsToResource" {
+
+		api.addTagsToResource(w, r)
+
+	} else if amztarget == "AmazonSSM.RemoveTagsFromResource" {
+
+		api.removeTagsFromResource(w, r)
+
 	} else {
 
+		log.Println("Unknown Target:", amztarget)
 		awslib.WriteErrorResponseJSON(w, awslib.ErrorCodes[awslib.ErrValidationError], r.URL, api.credentials.Region)
 	}
 }
 
 func (api *ParameterApi) getParameter(w http.ResponseWriter, r *http.Request) {
 
-	var request GetParameterRequest
+	var request awsssm.GetParameterInput
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -95,7 +109,7 @@ func (api *ParameterApi) getParameter(w http.ResponseWriter, r *http.Request) {
 
 func (api *ParameterApi) getParameters(w http.ResponseWriter, r *http.Request) {
 
-	var request GetParametersRequest
+	var request awsssm.GetParametersInput
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -114,7 +128,7 @@ func (api *ParameterApi) getParameters(w http.ResponseWriter, r *http.Request) {
 
 func (api *ParameterApi) getParametersByPath(w http.ResponseWriter, r *http.Request) {
 
-	var request GetParametersByPathRequest
+	var request awsssm.GetParametersByPathInput
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -133,7 +147,7 @@ func (api *ParameterApi) getParametersByPath(w http.ResponseWriter, r *http.Requ
 
 func (api *ParameterApi) describeParameters(w http.ResponseWriter, r *http.Request) {
 
-	var request DescribeParametersRequest
+	var request awsssm.DescribeParametersInput
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -152,7 +166,7 @@ func (api *ParameterApi) describeParameters(w http.ResponseWriter, r *http.Reque
 
 func (api *ParameterApi) deleteParameter(w http.ResponseWriter, r *http.Request) {
 
-	var request DeleteParameterRequest
+	var request awsssm.DeleteParameterInput
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -171,7 +185,7 @@ func (api *ParameterApi) deleteParameter(w http.ResponseWriter, r *http.Request)
 
 func (api *ParameterApi) deleteParameters(w http.ResponseWriter, r *http.Request) {
 
-	var request DeleteParametersRequest
+	var request awsssm.DeleteParametersInput
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -191,13 +205,70 @@ func (api *ParameterApi) deleteParameters(w http.ResponseWriter, r *http.Request
 
 func (api *ParameterApi) putParameter(creds *aws.Credentials, w http.ResponseWriter, r *http.Request) {
 
-	var request PutParameterRequest
+	var request awsssm.PutParameterInput
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	response, err := api.service.PutParameter(creds, &request)
+	if err != nil {
+
+		log.Println("Error:", err)
+		awslib.WriteErrorResponseJSON(w, translateToApiError(err), r.URL, api.credentials.Region)
+		return
+	}
+
+	awslib.WriteSuccessResponseJSON(w, response)
+}
+
+func (api *ParameterApi) addTagsToResource(w http.ResponseWriter, r *http.Request) {
+
+	var request awsssm.AddTagsToResourceInput
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	response, err := api.service.AddTagsToResource(&request)
+	if err != nil {
+
+		log.Println("Error:", err)
+		awslib.WriteErrorResponseJSON(w, translateToApiError(err), r.URL, api.credentials.Region)
+		return
+	}
+
+	awslib.WriteSuccessResponseJSON(w, response)
+}
+
+func (api *ParameterApi) removeTagsFromResource(w http.ResponseWriter, r *http.Request) {
+
+	var request awsssm.RemoveTagsFromResourceInput
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	response, err := api.service.RemoveTagsFromResource(&request)
+	if err != nil {
+
+		log.Println("Error:", err)
+		awslib.WriteErrorResponseJSON(w, translateToApiError(err), r.URL, api.credentials.Region)
+		return
+	}
+
+	awslib.WriteSuccessResponseJSON(w, response)
+}
+
+func (api *ParameterApi) listTagsForResource(w http.ResponseWriter, r *http.Request) {
+
+	var request awsssm.ListTagsForResourceInput
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	response, err := api.service.ListTagsForResource(&request)
 	if err != nil {
 
 		log.Println("Error:", err)

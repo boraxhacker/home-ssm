@@ -1,23 +1,28 @@
 package ssm
 
 import (
-	"home-ssm/awslib"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	awsssm "github.com/aws/aws-sdk-go-v2/service/ssm"
+	awstypes "github.com/aws/aws-sdk-go-v2/service/ssm/types"
 	"strings"
+	"time"
 )
 
 type ParamName string
 
-func (p ParamName) CheckValidity() error {
+func NewParamName(ptrname *string) (ParamName, error) {
 
-	name := strings.TrimPrefix(strings.ToLower(string(p)), "/")
-	if strings.HasPrefix(name, "aws") ||
-		strings.HasPrefix(name, "ssm") ||
-		strings.HasSuffix(name, "/") {
+	name := aws.ToString(ptrname)
 
-		return ErrInvalidName
+	chkname := strings.TrimPrefix(strings.ToLower(name), "/")
+	if strings.HasPrefix(chkname, "aws") ||
+		strings.HasPrefix(chkname, "ssm") ||
+		strings.HasSuffix(chkname, "/") {
+
+		return "", ErrInvalidName
 	}
 
-	return nil
+	return ParamName(name), nil
 }
 
 func (p ParamName) asPathName() ParamName {
@@ -41,14 +46,22 @@ func (p ParamName) asEqualsRegex() string {
 
 type ParamPath string
 
-func (p ParamPath) CheckValidity() error {
+func NewParamPath(ptrpath *string) (ParamPath, error) {
 
-	if strings.HasPrefix(string(p), "/") {
+	path := aws.ToString(ptrpath)
 
-		return ParamName(strings.TrimSuffix(string(p), "/")).CheckValidity()
+	if strings.HasPrefix(path, "/") {
+
+		result := strings.TrimSuffix(path, "/")
+		_, err := NewParamName(&result)
+		if err != nil {
+			return "", err
+		}
+
+		return ParamPath(result), nil
 	}
 
-	return ErrInvalidPath
+	return "", ErrInvalidPath
 }
 
 func (p ParamPath) asRecursiveRegex() string {
@@ -65,129 +78,81 @@ func (p ParamPath) asOneLevelRegex() string {
 	return "^" + string(path) + "/[^/]+$"
 }
 
-type Parameter struct {
-	AllowedPattern   string               `json:"AllowedPattern"`
-	DataType         ParamDataType        `json:"DataType"`
-	Description      string               `json:"Description"`
-	KeyId            string               `json:"KeyId"`
-	LastModifiedDate float64              `json:"LastModifiedDate"`
-	LastModifiedUser string               `json:"LastModifiedUser"`
-	Name             ParamName            `json:"Name"`
-	Policies         string               `json:"Policies"`
-	Tags             []awslib.ResourceTag `json:"Tags"`
-	Tier             ParamTier            `json:"Tier"`
-	Type             ParamType            `json:"Type"`
-	Value            string               `json:"Value"`
-	Version          int64                `json:"Version"`
+type ResourceTag struct {
+	Key   string
+	Value string
 }
 
-type GetParameterRequest struct {
-	Name           ParamName `json:"Name"`
-	WithDecryption bool      `json:"WithDecryption"`
+type ParameterData struct {
+	AllowedPattern   string
+	DataType         string
+	Description      string
+	KeyId            string
+	LastModifiedDate float64
+	LastModifiedUser string
+	Name             ParamName
+	Policies         string
+	Tags             []ResourceTag
+	Tier             awstypes.ParameterTier
+	Type             awstypes.ParameterType
+	Value            string
+	Version          int64
 }
 
-type GetParametersRequest struct {
-	Names          []ParamName `json:"Names"`
-	WithDecryption bool        `json:"WithDecryption"`
-}
+func NewParameterData(request *awsssm.PutParameterInput) (*ParameterData, error) {
 
-type GetParametersByPathRequest struct {
-	MaxResults       int64             `json:"MaxResults"`
-	NextToken        string            `json:"NextToken"`
-	ParameterFilters []ParameterFilter `json:"ParameterFilters"`
-	Path             ParamPath         `json:"Path"`
-	Recursive        bool              `json:"Recursive"`
-	WithDecryption   bool              `json:"WithDecryption"`
-}
-
-type ParamDataType string
-
-const (
-	TextDataType           ParamDataType = "text"
-	Ec2ImageDataType       ParamDataType = "aws:ec2:image"
-	SsmIntegrationDataType ParamDataType = "aws:ssm:int64egration"
-)
-
-func (dtype ParamDataType) isValid(allowBlank bool) bool {
-
-	if allowBlank && dtype == "" {
-		return true
+	paramName, err := NewParamName(request.Name)
+	if err != nil {
+		return nil, err
 	}
 
-	return dtype == "" || dtype == TextDataType || dtype == Ec2ImageDataType || dtype == SsmIntegrationDataType
-}
-
-type ParamTier string
-
-const (
-	StandardTier    ParamTier = "Standard"
-	AdvancedTier    ParamTier = "Advanced"
-	IntelligentTier ParamTier = "Intelligent-Tiering"
-)
-
-func (tier ParamTier) isValid(allowBlank bool) bool {
-
-	if allowBlank && tier == "" {
-		return true
+	result := ParameterData{
+		AllowedPattern:   aws.ToString(request.AllowedPattern),
+		DataType:         aws.ToString(request.DataType),
+		Description:      aws.ToString(request.Description),
+		LastModifiedDate: float64(time.Now().UnixNano()) / float64(time.Second),
+		Name:             paramName.asPathName(),
+		Policies:         aws.ToString(request.Policies),
+		Tier:             request.Tier,
+		Type:             request.Type,
+		Value:            aws.ToString(request.Value),
 	}
 
-	return tier == StandardTier || tier == AdvancedTier || tier == IntelligentTier
-}
-
-type ParamType string
-
-const (
-	StringType       ParamType = "String"
-	StringListType   ParamType = "StringList"
-	SecureStringType ParamType = "SecureString"
-)
-
-func (ptype ParamType) isValid(allowBlank bool) bool {
-
-	if allowBlank && ptype == "" {
-		return true
+	if result.Tier == "" {
+		result.Tier = awstypes.ParameterTierStandard
 	}
 
-	return ptype == StringType || ptype == StringListType || ptype == SecureStringType
-}
-
-type PutParameterRequest struct {
-	AllowedPattern string               `json:"AllowedPattern"`
-	DataType       ParamDataType        `json:"DataType"`
-	Description    string               `json:"Description"`
-	KeyId          string               `json:"KeyId"`
-	Name           ParamName            `json:"Name"`
-	Overwrite      bool                 `json:"Overwrite"`
-	Policies       string               `json:"Policies"`
-	Tags           []awslib.ResourceTag `json:"Tags"`
-	Tier           ParamTier            `json:"Tier"`
-	Type           ParamType            `json:"Type"`
-	Value          string               `json:"Value"`
-}
-
-func (request *PutParameterRequest) CheckValidity() error {
-
-	if !request.Tier.isValid(true) {
-		return ErrInvalidTier
+	if result.DataType == "" {
+		result.DataType = "text"
 	}
 
-	if !request.DataType.isValid(true) {
-		return ErrInvalidDataType
+	if result.Tier != awstypes.ParameterTierStandard &&
+		result.Tier != awstypes.ParameterTierAdvanced &&
+		result.Tier != awstypes.ParameterTierIntelligentTiering {
+
+		return nil, ErrInvalidTier
 	}
 
-	if !request.Type.isValid(true) {
-		return ErrInvalidTier
+	if result.DataType != "text" &&
+		result.DataType != "aws:ec2:image" &&
+		result.DataType != "aws:ssm:integration" {
+
+		return nil, ErrInvalidDataType
 	}
 
-	return request.Name.CheckValidity()
-}
+	if result.Type != awstypes.ParameterTypeString &&
+		result.Type != awstypes.ParameterTypeSecureString &&
+		result.Type != awstypes.ParameterTypeStringList {
 
-type DeleteParameterRequest struct {
-	Name ParamName `json:"Name"`
-}
+		return nil, ErrUnsupportedParameterType
+	}
 
-type DeleteParametersRequest struct {
-	Names []ParamName `json:"Names"`
+	for _, tag := range request.Tags {
+		result.Tags = append(result.Tags,
+			ResourceTag{Key: aws.ToString(tag.Key), Value: aws.ToString(tag.Value)})
+	}
+
+	return &result, nil
 }
 
 type KeyFilterType string
@@ -230,57 +195,73 @@ type ParameterFilter struct {
 	Values []string         `json:"Values"`
 }
 
-func (filter *ParameterFilter) CheckValidity() error {
+func NewParameterFilter(filter *awstypes.ParameterStringFilter) (*ParameterFilter, error) {
 
-	if !filter.Key.isValid() {
-		return ErrInvalidFilterKey
+	result := ParameterFilter{
+		Key:    KeyFilterType(aws.ToString(filter.Key)),
+		Option: OptionFilterType(aws.ToString(filter.Option)),
+		Values: filter.Values,
 	}
 
-	if !filter.Option.isValid() {
-		return ErrInvalidFilterOption
+	if !result.Key.isValid() {
+		return nil, ErrInvalidFilterKey
 	}
 
-	if filter.Key == PathKeyFilter {
-		if filter.Option != OneLevelOptionFilter && filter.Option != RecursiveOptionFilter {
-			return ErrInvalidFilterOption
+	if !result.Option.isValid() {
+		return nil, ErrInvalidFilterOption
+	}
+
+	if result.Key == PathKeyFilter {
+		if result.Option != OneLevelOptionFilter && result.Option != RecursiveOptionFilter {
+			return nil, ErrInvalidFilterOption
 		}
 	}
 
-	if filter.Key == NameKeyFilter {
-		if filter.Option != EqualsOptionFilter && filter.Option != BeginsWithOptionFilter {
-			return ErrInvalidFilterOption
+	if result.Key == NameKeyFilter {
+		if result.Option != EqualsOptionFilter && result.Option != BeginsWithOptionFilter {
+			return nil, ErrInvalidFilterOption
 		}
 	}
 
-	return nil
+	return &result, nil
 }
 
-type DeleteParametersResponse struct {
-	DeleteParameters  []ParamName `json:"DeletedParameters"`
-	InvalidParameters []ParamName `json:"InvalidParameters"`
+type ParameterArnGenerator func(ParamName) string
+
+type DescribeParameterItem struct {
+	AllowedPattern   string                 `json:"AllowedPattern,omitempty"`
+	ARN              string                 `json:"ARN"`
+	DataType         string                 `json:"DataType"`
+	Description      string                 `json:"Description,omitempty"`
+	KeyId            string                 `json:"KeyId,omitempty"`
+	LastModifiedDate float64                `json:"LastModifiedDate"`
+	LastModifiedUser string                 `json:"LastModifiedUser"`
+	Name             ParamName              `json:"Name"`
+	Policies         string                 `json:"Policies,omitempty"`
+	Tier             awstypes.ParameterTier `json:"Tier"`
+	Type             awstypes.ParameterType `json:"Type"`
+	Version          int64                  `json:"Version"`
 }
 
-type DescribeParametersRequest struct {
-	MaxResults       int64             `json:"MaxResults"`
-	NextToken        string            `json:"NextToken"`
-	ParameterFilters []ParameterFilter `json:"ParameterFilters"`
-	Shared           bool              `json:"Shared"`
+type DescribeParametersResponse struct {
+	NextToken  string                  `json:"NextToken,omitempty"`
+	Parameters []DescribeParameterItem `json:"Parameters"`
 }
 
 type GetParameterItem struct {
-	ARN              string        `json:"ARN"`
-	DataType         ParamDataType `json:"DataType"`
-	LastModifiedDate float64       `json:"LastModifiedDate"`
-	Name             ParamName     `json:"Name"`
-	Selector         string        `json:"Selector"`
-	SourceResult     string        `json:"SourceResult"`
-	Type             ParamType     `json:"Type"`
-	Value            string        `json:"Value"`
-	Version          int64         `json:"Version"`
+	ARN              string                 `json:"ARN"`
+	DataType         string                 `json:"DataType"`
+	LastModifiedDate float64                `json:"LastModifiedDate"`
+	Name             ParamName              `json:"Name"`
+	Selector         string                 `json:"Selector,omitempty"`
+	SourceResult     string                 `json:"SourceResult,omitempty"`
+	Type             awstypes.ParameterType `json:"Type"`
+	Value            string                 `json:"Value"`
+	Version          int64                  `json:"Version"`
 }
 
 type GetParametersResponse struct {
-	InvalidParameters []ParamName        `json:"InvalidParameters"`
+	InvalidParameters []string           `json:"InvalidParameters"`
 	Parameters        []GetParameterItem `json:"Parameters"`
 }
 
@@ -290,54 +271,23 @@ type GetParametersByPathResponse struct {
 }
 
 type GetParameterResponse struct {
-	Parameter GetParameterItem `json:"Parameter"`
+	Parameter *GetParameterItem `json:"Parameter"`
 }
 
-type PutParameterResponse struct {
-	Tier    ParamTier `json:"Tier"`
-	Version int64     `json:"Version"`
-}
-
-type DeleteParameterResponse struct{}
-
-type DescribeParameterItem struct {
-	AllowedPattern   string        `json:"AllowedPattern"`
-	ARN              string        `json:"ARN"`
-	DataType         ParamDataType `json:"DataType"`
-	Description      string        `json:"Description"`
-	KeyId            string        `json:"KeyId"`
-	LastModifiedDate float64       `json:"LastModifiedDate"`
-	LastModifiedUser string        `json:"LastModifiedUser"`
-	Name             ParamName     `json:"Name"`
-	Policies         string        `json:"Policies"`
-	Tier             ParamTier     `json:"Tier"`
-	Type             ParamType     `json:"Type"`
-	Version          int64         `json:"Version"`
-}
-
-type DescribeParametersResponse struct {
-	NextToken  string                  `json:"NextToken"`
-	Parameters []DescribeParameterItem `json:"Parameters"`
-}
-
-type ParameterArnGenerator func(ParamName) string
-
-func (param *Parameter) toGetParameterItem(arnGenerator ParameterArnGenerator) *GetParameterItem {
+func (param *ParameterData) toGetParameterItem(arnGenerator ParameterArnGenerator) *GetParameterItem {
 
 	return &GetParameterItem{
 		ARN:              arnGenerator(param.Name),
 		DataType:         param.DataType,
 		LastModifiedDate: param.LastModifiedDate,
 		Name:             param.Name,
-		Selector:         "",
-		SourceResult:     "",
 		Type:             param.Type,
 		Value:            param.Value,
 		Version:          param.Version,
 	}
 }
 
-func (param *Parameter) toDescribeParameterItem(arnGenerator ParameterArnGenerator) *DescribeParameterItem {
+func (param *ParameterData) toDescribeParameterItem(arnGenerator ParameterArnGenerator) *DescribeParameterItem {
 
 	return &DescribeParameterItem{
 		AllowedPattern:   param.AllowedPattern,
@@ -348,7 +298,6 @@ func (param *Parameter) toDescribeParameterItem(arnGenerator ParameterArnGenerat
 		LastModifiedDate: param.LastModifiedDate,
 		LastModifiedUser: param.LastModifiedUser,
 		Name:             param.Name,
-		Policies:         param.Policies,
 		Tier:             param.Tier,
 		Type:             param.Type,
 		Version:          param.Version,

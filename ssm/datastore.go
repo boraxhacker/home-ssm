@@ -49,9 +49,9 @@ func (ds *DataStore) delete(key string) error {
 	return nil
 }
 
-func (ds *DataStore) findParametersByKey(filters []string) ([]Parameter, error) {
+func (ds *DataStore) findParametersByKey(filters []string) ([]ParameterData, error) {
 
-	var result []Parameter
+	var result []ParameterData
 
 	err := ds.db.View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
@@ -66,7 +66,7 @@ func (ds *DataStore) findParametersByKey(filters []string) ([]Parameter, error) 
 				match, _ := regexp.MatchString(filter, key)
 				if match {
 
-					var param Parameter
+					var param ParameterData
 					umerr := item.Value(func(val []byte) error {
 						return json.Unmarshal(val, &param)
 					})
@@ -95,9 +95,9 @@ func (ds *DataStore) findParametersByKey(filters []string) ([]Parameter, error) 
 	return result, nil
 }
 
-func (ds *DataStore) getParameter(key string) (*Parameter, error) {
+func (ds *DataStore) getParameter(key string) (*ParameterData, error) {
 
-	var param Parameter
+	var param ParameterData
 
 	err := ds.db.View(func(txn *badger.Txn) error {
 		item, err := txn.Get([]byte(key))
@@ -123,10 +123,10 @@ func (ds *DataStore) getParameter(key string) (*Parameter, error) {
 	return &param, nil
 }
 
-func (ds *DataStore) putParameter(key string, value *Parameter, overwrite bool) (int64, error) {
+func (ds *DataStore) putParameter(key string, value *ParameterData, overwrite bool) (int64, error) {
 
 	var newVersion int64 = 1
-	var existingParam Parameter
+	var existingParam ParameterData
 
 	err := ds.db.Update(func(txn *badger.Txn) error {
 

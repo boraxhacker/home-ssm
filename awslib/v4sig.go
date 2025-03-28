@@ -22,7 +22,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 )
 
-const headerAmzContentSha256 = "X-Amz-Content-Sha256"
 const headerAmzDate = "X-Amz-Date"
 const headerDate = "Date"
 const headerAuthorization = "Authorization"
@@ -86,6 +85,7 @@ func (p *CredentialsProvider) WithSigV4(next http.HandlerFunc) http.HandlerFunc 
 
 	return func(w http.ResponseWriter, r *http.Request) {
 
+		log.Println("Starting...")
 		hashedPayload := getContentSha256Cksum(r, p.Service)
 
 		// Copy request.

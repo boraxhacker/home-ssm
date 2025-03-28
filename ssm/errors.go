@@ -7,17 +7,17 @@ import (
 )
 
 var (
-	ErrParameterNotFound        = errors.New("The Parameter Name provided does not exist.")
+	ErrParameterNotFound        = errors.New("The ParameterData Name provided does not exist.")
 	ErrParameterAlreadyExists   = errors.New("The parameter already exists. You can't create duplicate parameters.")
 	ErrInternalError            = errors.New("We encountered an internal error, please try again.")
-	ErrInvalidKeyId             = errors.New("The Parameter KeyId is not valid.")
-	ErrInvalidName              = errors.New("The Parameter Name is not valid.")
-	ErrInvalidTier              = errors.New("The Parameter Tier is not valid.")
-	ErrInvalidDataType          = errors.New("The Parameter DataType is not valid.")
+	ErrInvalidKeyId             = errors.New("The ParameterData KeyId is not valid.")
+	ErrInvalidName              = errors.New("The ParameterData Name is not valid.")
+	ErrInvalidTier              = errors.New("The ParameterData Tier is not valid.")
+	ErrInvalidDataType          = errors.New("The ParameterData DataType is not valid.")
 	ErrInvalidFilterKey         = errors.New("The specified key isn't valid.")
 	ErrInvalidFilterOption      = errors.New("The specified filter option isn't valid. Valid options are Equals and BeginsWith. For Path filter, valid options are Recursive and OneLevel.")
 	ErrInvalidFilterValue       = errors.New("The filter value isn't valid. Verify the value and try again.")
-	ErrUnsupportedParameterType = errors.New("The Parameter Type is not supported.")
+	ErrUnsupportedParameterType = errors.New("The parameter type isn't supported.")
 	ErrInvalidPath              = errors.New("The parameter doesn't meet the parameter name requirements. The parameter name must begin with a forward slash '/'.")
 )
 
